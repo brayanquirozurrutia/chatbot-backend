@@ -1,7 +1,6 @@
 import spacy
 
-# Cargar el modelo de spaCy
-nlp = spacy.load("es_core_news_sm")
+nlp = spacy.load("es_core_news_md")
 
 def extract_keywords(user_input: str):
     doc = nlp(user_input)
