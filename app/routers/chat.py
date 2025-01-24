@@ -1,18 +1,10 @@
-import os
-
-import requests
 from fastapi import APIRouter, WebSocket, Depends
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.services.chat_ai import generate_response
 from app.services.nlp import extract_keywords
-from app.models import FAQ
 from app.services.redis_cache import get_cache, set_cache
-from dotenv import load_dotenv
-
-load_dotenv()
-
-WHATSAPP_PHONE = os.getenv("WHATSAPP_PHONE")
+from app.utils.utils import generate_whatsapp_link
 
 router = APIRouter()
 
@@ -63,15 +55,34 @@ def handle_greetings(user_input: str) -> str:
     return None
 
 def find_faq_response(db: Session, keywords: list[str]) -> str:
-    faqs = db.query(FAQ).all()
-    for faq in faqs:
-        if set(keywords) & set(faq.keywords):
-            return faq.response
+    """
+    Search for the most relevant FAQ response based on the keywords extracted from the user input.
+    :param db: The database session
+    :param keywords: The keywords extracted from the user input
+    :return: The most relevant FAQ response or a default message
+    """
+    from sqlalchemy import text
+
+    keywords_lower = [keyword.lower() for keyword in keywords]
+
+    sql = text(
+        """
+        SELECT id, question, keywords, response,
+            (SELECT COUNT(*) FROM unnest(faqs.keywords) AS keyword WHERE keyword = ANY(:keywords)) AS match_count
+        FROM faqs
+        ORDER BY match_count DESC
+        LIMIT 1
+        """
+    )
+
+    result = db.execute(sql, {"keywords": keywords_lower}).fetchone()
+
+    if result and result[4] >= 2:
+        return result[3]
 
     whatsapp_message = "Hola, Brayan. Me gustaría obtener más información."
-    whatsapp_link = f"https://wa.me/{WHATSAPP_PHONE}?text={requests.utils.quote(whatsapp_message)}"
     return (
         "Lo siento, no tengo una respuesta exacta para esa pregunta. "
         "Te invito a revisar nuestras preguntas frecuentes o, si prefieres, contáctame directamente por WhatsApp.\n\n"
-        f"👉 [Contáctame por WhatsApp]({whatsapp_link})"
+        f"{generate_whatsapp_link(whatsapp_message)}"
     )

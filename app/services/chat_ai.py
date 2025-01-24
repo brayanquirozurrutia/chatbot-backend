@@ -3,10 +3,10 @@ import os
 import requests
 import json
 from dotenv import load_dotenv
+from app.utils.utils import generate_whatsapp_link
 
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-WHATSAPP_PHONE = os.getenv("WHATSAPP_PHONE")
 
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 
@@ -54,8 +54,7 @@ def generate_response(user_input: str, faq_base_response: str = None) -> str:
 
             if "contáctanos" in generated_content.lower() or "ponte en contacto" in generated_content.lower():
                 whatsapp_message = "Hola, Brayan. Me gustaría obtener más información sobre tus servicios."
-                whatsapp_link = f"https://wa.me/{WHATSAPP_PHONE}?text={requests.utils.quote(whatsapp_message)}"
-                generated_content += f"\n\n👉 [Contáctame por WhatsApp]({whatsapp_link})"
+                generated_content += f"\n\n{generate_whatsapp_link(whatsapp_message)}"
 
             return generated_content.strip()
         else:
